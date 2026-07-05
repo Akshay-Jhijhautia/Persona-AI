@@ -1,0 +1,1 @@
+export type PersonaId = "hitesh" | "piyush";
