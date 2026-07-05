@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Create submission-ready documentation for my Gen AI persona chat project.
 
-## Getting Started
+Project context:
 
-First, run the development server:
+- Next.js + TypeScript + Tailwind CSS
+- OpenAI API using GPT-4o
+- ChatGPT-style UI
+- Persona dropdown supports:
+  - Hitesh Choudhary
+  - Piyush Garg
+- Backend route: /api/chat
+- No RAG in v1
+- No fine-tuning
+- One LLM call per user message
+- Backend returns structured stages internally:
+  INITIATE, THINK, ANALYSE, OUTPUT
+- Frontend displays only stage.content, not stage.type
+- API key remains server-side in .env.local
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Task:
+Create/update these files:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+1. README.md
+   Include:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Project title
+- Short description
+- Features
+- Tech stack
+- How to run locally
+- Required environment variables
+- How the app works
+- Deployment note
+- Disclaimer that this is an AI-generated educational simulation inspired by public teaching styles, not the real person
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2. docs/data-collection.md
+   Explain:
 
-## Learn More
+- Persona data was collected from publicly available content like official websites, YouTube videos, talks, blogs, and social media presence
+- No private data used
+- No scraping automation required for v1
+- Observations were manually converted into persona traits, tone, teaching style, common phrases, and do/don't rules
 
-To learn more about Next.js, take a look at the following resources:
+3. docs/prompt-strategy.md
+   Explain:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Persona-specific system prompts
+- Hitesh persona: friendly Hinglish, beginner-friendly, warm mentor style
+- Piyush persona: professional Hinglish, confident, engineering-focused, builder mindset
+- Structured response pipeline
+- Internal stages are used for response organization, but hidden from frontend
+- THINK stage is public teaching reasoning only, not hidden chain-of-thought
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+4. docs/context-management.md
+   Explain:
 
-## Deploy on Vercel
+- Frontend keeps chat messages in React state
+- Only recent 8 messages are sent to backend
+- This controls token usage and keeps context relevant
+- Persona can be switched using dropdown
+- No database persistence in v1
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+5. docs/sample-conversations.md
+   Add:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- One sample Hitesh conversation for: What is 2 \* 4 - 5 / 8 + 6?
+- One sample Piyush conversation for: Can I build a todo app and run it locally?
+- Samples should show natural user-visible messages only, not INITIATE/THINK/ANALYSE labels
+
+Important:
+
+- Do not modify app code.
+- Do not add new packages.
+- Keep documentation simple, clear, and assignment-ready.
+- Use Markdown.
