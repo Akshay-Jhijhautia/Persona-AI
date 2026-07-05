@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import type { ChatMessage, PersonaId } from "../types/chat";
+import type {
+  ChatMessage,
+  PersonaChatResponse,
+  PersonaId,
+  StageType,
+} from "../types/chat";
 
 type ChatWindowProps = {
   selectedPersona: PersonaId;
@@ -15,6 +20,8 @@ const personas: { id: PersonaId; name: string }[] = [
   { id: "piyush", name: "Piyush Garg" },
 ];
 
+const stageTypes: StageType[] = ["INITIATE", "THINK", "ANALYSE", "OUTPUT"];
+
 function getPersonaName(persona: PersonaId) {
   return persona === "hitesh" ? "Hitesh Choudhary" : "Piyush Garg";
 }
@@ -23,12 +30,46 @@ function createMessageId() {
   return crypto.randomUUID();
 }
 
-function getTemporaryAssistantResponse(persona: PersonaId, question: string) {
-  if (persona === "hitesh") {
-    return `Haan ji! You asked: “${question}”. This is a temporary local demo response in Hitesh's teaching style.`;
+function wait(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isStageType(value: unknown): value is StageType {
+  return (
+    typeof value === "string" &&
+    (stageTypes as readonly string[]).includes(value)
+  );
+}
+
+function isPersonaChatResponse(value: unknown): value is PersonaChatResponse {
+  if (
+    !isRecord(value) ||
+    (value.persona !== "hitesh" && value.persona !== "piyush") ||
+    value.status !== "STOP" ||
+    !Array.isArray(value.stages) ||
+    value.stages.length === 0
+  ) {
+    return false;
   }
 
-  return `Absolutely. You asked: “${question}”. This is a temporary local demo response in Piyush's teaching style.`;
+  return value.stages.every(
+    (stage) =>
+      isRecord(stage) &&
+      isStageType(stage.type) &&
+      typeof stage.content === "string",
+  );
+}
+
+function getApiErrorMessage(value: unknown) {
+  if (isRecord(value) && typeof value.error === "string") {
+    return value.error;
+  }
+
+  return "Unable to get a response. Please try again.";
 }
 
 export default function ChatWindow({
@@ -38,6 +79,8 @@ export default function ChatWindow({
 }: ChatWindowProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,14 +95,16 @@ export default function ChatWindow({
     }
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const trimmedInput = inputValue.trim();
 
-    if (!trimmedInput) {
+    if (!trimmedInput || isLoading) {
       return;
     }
+
+    const requestPersona = selectedPersona;
 
     const userMessage: ChatMessage = {
       id: createMessageId(),
@@ -67,20 +112,66 @@ export default function ChatWindow({
       content: trimmedInput,
     };
 
-    const assistantMessage: ChatMessage = {
-      id: createMessageId(),
-      role: "assistant",
-      persona: selectedPersona,
-      content: getTemporaryAssistantResponse(selectedPersona, trimmedInput),
-    };
+    const nextMessages = [...messages, userMessage];
 
-    setMessages((currentMessages) => [
-      ...currentMessages,
-      userMessage,
-      assistantMessage,
-    ]);
-
+    setMessages(nextMessages);
     setInputValue("");
+    setErrorMessage("");
+    setIsLoading(true);
+
+    const recentMessages = nextMessages.slice(-8).map((message) => ({
+      role: message.role,
+      content: message.content,
+    }));
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          persona: requestPersona,
+          messages: recentMessages,
+        }),
+      });
+
+      const responseBody: unknown = await response.json();
+
+      if (!response.ok) {
+        throw new Error(getApiErrorMessage(responseBody));
+      }
+
+      if (!isPersonaChatResponse(responseBody)) {
+        throw new Error("The chat response was not in the expected format.");
+      }
+
+      for (const [index, stage] of responseBody.stages.entries()) {
+        if (index > 0) {
+          await wait(500);
+        }
+
+        const assistantMessage: ChatMessage = {
+          id: createMessageId(),
+          role: "assistant",
+          persona: responseBody.persona,
+          content: stage.content,
+        };
+
+        setMessages((currentMessages) => [
+          ...currentMessages,
+          assistantMessage,
+        ]);
+      }
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to get a response. Please try again.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -170,6 +261,7 @@ export default function ChatWindow({
       >
         <form
           onSubmit={handleSubmit}
+          aria-busy={isLoading}
           className={
             isDark
               ? "mx-auto w-full max-w-3xl rounded-3xl border border-slate-700 bg-slate-900 p-2 shadow-2xl shadow-black/20 transition focus-within:border-cyan-500"
@@ -206,28 +298,42 @@ export default function ChatWindow({
               type="text"
               value={inputValue}
               onChange={(event) => setInputValue(event.target.value)}
-              placeholder={`Ask ${getPersonaName(selectedPersona)} anything...`}
+              disabled={isLoading}
+              placeholder={"Ask " + getPersonaName(selectedPersona) + " anything..."}
               aria-label="Chat message"
               className={
                 isDark
-                  ? "min-w-0 flex-1 bg-transparent px-3 py-3 text-sm text-white outline-none placeholder:text-slate-500 sm:text-base"
-                  : "min-w-0 flex-1 bg-transparent px-3 py-3 text-sm text-slate-950 outline-none placeholder:text-slate-400 sm:text-base"
+                  ? "min-w-0 flex-1 bg-transparent px-3 py-3 text-sm text-white outline-none placeholder:text-slate-500 disabled:cursor-not-allowed disabled:opacity-60 sm:text-base"
+                  : "min-w-0 flex-1 bg-transparent px-3 py-3 text-sm text-slate-950 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60 sm:text-base"
               }
             />
 
             <button
               type="submit"
-              disabled={!inputValue.trim()}
+              disabled={isLoading || !inputValue.trim()}
               className={
                 isDark
-                  ? "shrink-0 rounded-full bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
-                  : "shrink-0 rounded-full bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
+                  ? "min-w-24 shrink-0 rounded-full bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
+                  : "min-w-24 shrink-0 rounded-full bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
               }
             >
-              Send
+              {isLoading ? "Thinking..." : "Send"}
             </button>
           </div>
         </form>
+
+        {errorMessage && (
+          <p
+            role="alert"
+            className={
+              isDark
+                ? "mx-auto mt-2 max-w-3xl px-2 text-center text-xs text-red-300"
+                : "mx-auto mt-2 max-w-3xl px-2 text-center text-xs text-red-600"
+            }
+          >
+            {errorMessage}
+          </p>
+        )}
 
         <p
           className={

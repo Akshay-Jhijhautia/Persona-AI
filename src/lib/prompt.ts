@@ -14,6 +14,10 @@ Allowed stages:
 - INITIATE
 - THINK
 - ANALYSE
+- THINK
+- ANALYSE
+- THINK
+- ANALYSE
 - OUTPUT
 
 Important rules:
