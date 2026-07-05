@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ChatWindow from "./ChatWindow";
 import PersonaSelector from "./PersonaSelector";
 import type { PersonaId } from "../types/chat";
 
@@ -63,18 +64,7 @@ export default function HomeShell() {
           isDark={isDark}
         />
 
-        <div
-          className={
-            isDark
-              ? "rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm text-slate-400"
-              : "rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"
-          }
-        >
-          Current persona:{" "}
-          <span className="font-semibold">
-            {selectedPersona === "hitesh" ? "Hitesh Choudhary" : "Piyush Garg"}
-          </span>
-        </div>
+        <ChatWindow selectedPersona={selectedPersona} isDark={isDark} />
       </section>
     </main>
   );
